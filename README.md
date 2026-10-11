@@ -15,10 +15,10 @@ Two audiences:
   hand-writes per-domain API modules in `src/lib/*Api.ts`; this package is
   the path to replacing those with one generated source of truth.
 
-Status: early scaffold, generated from `bare-metal-cloud/backend` at tag
+Status: scaffold release, generated from `bare-metal-cloud/backend` at tag
 **v1.2.0**. The client regenerates automatically whenever the backend
-publishes a new release tag; the publishing target (npm registry) is still
-being decided.
+publishes a new release tag, and this repo's own `v*` tags publish the
+npm package (`@bare-metal-cloud/client`).
 
 ## Install
 
@@ -26,7 +26,8 @@ being decided.
 npm install @bare-metal-cloud/client
 ```
 
-(Once the first version is published; until then, install from a git tag.)
+(The first publish lands once the npm org and `NPM_TOKEN` are set up — see
+"Versioning and publishing". Until then, install from a git tag.)
 
 ## Quick start
 
@@ -85,10 +86,13 @@ it the tag-watch job skips (it cannot read the private backend repo).
 
 ## Versioning and publishing
 
-npm packages publish from a git tag. Publishing is **disabled until the
-registry decision is made** (npmjs vs. a self-hosted registry — the org has
-a stated direction of leaving GitHub, so the publish step is kept
-registry-agnostic on purpose). Until then, consumers install from a git tag:
+npm publishing is tag-driven: pushing `v0.1.2` publishes
+`@bare-metal-cloud/client@0.1.2` via `.github/workflows/publish.yml` (the
+tag wins over whatever version package.json carries). Prerequisite: the
+`NPM_TOKEN` repository secret — an npm automation token for a member of
+the bare-metal-cloud npm org.
+
+Until that first publish lands, install from a git tag:
 
 ```bash
 npm install github:bare-metal-cloud/client-js#v0.1.0
@@ -96,11 +100,11 @@ npm install github:bare-metal-cloud/client-js#v0.1.0
 
 ## Visibility
 
-Private for now (ruled 2026-10-11). The spec covers the **entire** API
-surface, including internal and admin endpoints — if this repository ever
-goes public, first decide whether to filter the spec down to
-customer-facing endpoints (the generation pipeline would drop non-public
-paths). Flipping visibility is a one-command change when that day comes.
+Public since 2026-10-11 — publishing to npm (and the Go module proxy, on
+the Go side) requires public content. The spec covers the **entire** API
+surface, including internal and admin endpoints; filtering the spec down
+to customer-facing endpoints remains an open option for a future pass
+(the generation pipeline would drop non-public paths).
 
 ## Known spec quirks handled by the pipeline
 

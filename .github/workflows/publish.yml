@@ -1,0 +1,47 @@
+name: publish
+
+# Publishes the npm package when a v* tag is pushed. The tag IS the version:
+# v0.1.2 publishes @bare-metal-cloud/client@0.1.2 regardless of what
+# package.json carried (regeneration keeps a running version; the tag wins).
+#
+# Requires the repository secret NPM_TOKEN: an npm automation token for an
+# account that is a member of the bare-metal-cloud npm org. Without it the
+# job warns and exits green (the Go side needs no credentials — tags publish
+# automatically through proxy.golang.org).
+
+on:
+  push:
+    tags: ["v[0-9]*"]
+
+permissions:
+  contents: read
+
+jobs:
+  publish-npm:
+    runs-on: namespace-profile-bmc
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      - name: Build
+        run: |
+          npm install --no-audit --no-fund
+          npm run build
+
+      - name: Publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          set -euo pipefail
+          ver="${GITHUB_REF_NAME#v}"
+          echo "publishing version $ver (from tag $GITHUB_REF_NAME)"
+          npm version "$ver" --no-git-tag-version --allow-same-version
+          if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
+            echo "::warning::NPM_TOKEN not set on this repo — skipping npm publish. Create the bare-metal-cloud npm org, mint an automation token, and set it as the NPM_TOKEN secret."
+            exit 0
+          fi
+          npm publish --access public
