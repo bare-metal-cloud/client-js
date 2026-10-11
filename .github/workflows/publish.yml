@@ -4,10 +4,13 @@ name: publish
 # v0.1.2 publishes @bare-metal-cloud/client@0.1.2 regardless of what
 # package.json carried (regeneration keeps a running version; the tag wins).
 #
-# Requires the repository secret NPM_TOKEN: an npm automation token for an
-# account that is a member of the bare-metal-cloud npm org. Without it the
-# job warns and exits green (the Go side needs no credentials — tags publish
-# automatically through proxy.golang.org).
+# Auth model: npm trusted publishing (OIDC) — the package on npmjs.com lists
+# this repo + workflow as its trusted publisher, so no npm credential lives
+# in GitHub. Requires a GitHub-hosted runner (self-hosted is not supported
+# by npm OIDC yet) and npm 11.5.1+, installed in-line below. The NPM_TOKEN
+# secret is only a fallback for the bootstrap case (a package that exists
+# but has no trusted-publisher attachment yet); if the token is absent too,
+# the job fails loudly instead of pretending.
 
 on:
   push:
@@ -15,10 +18,11 @@ on:
 
 permissions:
   contents: read
+  id-token: write # npm trusted publishing (OIDC)
 
 jobs:
   publish-npm:
-    runs-on: namespace-profile-bmc
+    runs-on: ubuntu-latest # npm OIDC does not work on self-hosted runners
     steps:
       - uses: actions/checkout@v4
 
@@ -26,9 +30,11 @@ jobs:
         with:
           node-version: 22
           registry-url: https://registry.npmjs.org
+          package-manager-cache: false
 
       - name: Build
         run: |
+          npm install -g npm@^11.5.1 # trusted publishing needs npm 11.5.1+
           npm install --no-audit --no-fund
           npm run build
 
@@ -40,8 +46,14 @@ jobs:
           ver="${GITHUB_REF_NAME#v}"
           echo "publishing version $ver (from tag $GITHUB_REF_NAME)"
           npm version "$ver" --no-git-tag-version --allow-same-version
-          if [ -z "${NODE_AUTH_TOKEN:-}" ]; then
-            echo "::warning::NPM_TOKEN not set on this repo — skipping npm publish. Create the bare-metal-cloud npm org, mint an automation token, and set it as the NPM_TOKEN secret."
-            exit 0
+          npm pkg set repository.type=git \
+            repository.url=git+https://github.com/bare-metal-cloud/client-js.git
+          if env -u NODE_AUTH_TOKEN npm publish --access public; then
+            echo "published via OIDC trusted publishing"
+          elif [ -n "${NODE_AUTH_TOKEN:-}" ]; then
+            echo "OIDC publish rejected; retrying with the NPM_TOKEN fallback"
+            npm publish --access public
+          else
+            echo "::error::npm publish failed and no NPM_TOKEN fallback is set. If the package exists on npmjs, attach its trusted publisher (GitHub: bare-metal-cloud/client-js, workflow publish.yml). Until then, bootstrap with an automation token."
+            exit 1
           fi
-          npm publish --access public

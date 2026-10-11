@@ -88,11 +88,20 @@ it the tag-watch job skips (it cannot read the private backend repo).
 
 npm publishing is tag-driven: pushing `v0.1.2` publishes
 `@bare-metal-cloud/client@0.1.2` via `.github/workflows/publish.yml` (the
-tag wins over whatever version package.json carries). Prerequisite: the
-`NPM_TOKEN` repository secret — an npm automation token for a member of
-the bare-metal-cloud npm org.
+tag wins over whatever version package.json carries).
 
-Until that first publish lands, install from a git tag:
+Auth is [npm trusted publishing](https://docs.npmjs.com/trusted-publishers)
+(OIDC): the package on npmjs.com lists this repository and workflow as its
+trusted publisher, so no npm credential lives in GitHub. Two constraints
+shaped the workflow: npm OIDC works only on GitHub-hosted runners (the
+publish job deliberately does not use the org fleet), and the trusted
+publisher attaches to a package that already exists — so the first publish
+bootstraps once via an automation token (`NPM_TOKEN` secret, used
+automatically as a fallback). Note that a newly attached trusted publisher
+must complete its first successful publish within 2 days or the attachment
+expires.
+
+Until the first publish lands, install from a git tag:
 
 ```bash
 npm install github:bare-metal-cloud/client-js#v0.1.0
