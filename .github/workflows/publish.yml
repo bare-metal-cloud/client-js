@@ -49,6 +49,7 @@ jobs:
           npm version "$ver" --no-git-tag-version --allow-same-version
           npm pkg set repository.type=git \
             repository.url=git+https://github.com/bare-metal-cloud/client-js.git
+          npm pkg set "files[0]=dist" "files[1]=src" "files[2]=README.md" "files[3]=LICENSE"
           if env -u NODE_AUTH_TOKEN npm publish --access public; then
             echo "published via OIDC trusted publishing"
           elif [ -n "${NODE_AUTH_TOKEN:-}" ]; then
