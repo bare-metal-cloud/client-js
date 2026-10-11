@@ -4,13 +4,13 @@ name: publish
 # v0.1.2 publishes @bare-metal-cloud/client@0.1.2 regardless of what
 # package.json carried (regeneration keeps a running version; the tag wins).
 #
-# Auth model: npm trusted publishing (OIDC) — the package on npmjs.com lists
-# this repo + workflow as its trusted publisher, so no npm credential lives
-# in GitHub. Requires a GitHub-hosted runner (self-hosted is not supported
-# by npm OIDC yet) and npm 11.5.1+, installed in-line below. The NPM_TOKEN
-# secret is only a fallback for the bootstrap case (a package that exists
-# but has no trusted-publisher attachment yet); if the token is absent too,
-# the job fails loudly instead of pretending.
+# Auth model: npm credential via the NPM_TOKEN secret (automation token for
+# the bare-metal-cloud npm org). npm's OIDC trusted publishing would remove
+# the token, but it only works on GitHub-hosted runners and this org runs
+# everything on its own fleet (namespace-profile-bmc) — so the workflow
+# still attempts OIDC first and falls back to the token. If npm ever
+# supports self-hosted runners for OIDC, the fleet job starts publishing
+# token-free automatically.
 
 on:
   push:
@@ -18,11 +18,11 @@ on:
 
 permissions:
   contents: read
-  id-token: write # npm trusted publishing (OIDC)
+  id-token: write # npm trusted publishing (OIDC), when npm learns self-hosted
 
 jobs:
   publish-npm:
-    runs-on: ubuntu-latest # npm OIDC does not work on self-hosted runners
+    runs-on: namespace-profile-bmc
     steps:
       - uses: actions/checkout@v4
 
