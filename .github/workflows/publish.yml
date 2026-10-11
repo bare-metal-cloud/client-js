@@ -41,6 +41,7 @@ jobs:
       - name: Publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+          NPM_CONFIG_PROVENANCE: "false" # npm auto-attaches provenance in Actions; npm rejects self-hosted provenance, and this job runs on the org fleet
         run: |
           set -euo pipefail
           ver="${GITHUB_REF_NAME#v}"
