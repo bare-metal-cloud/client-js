@@ -29,7 +29,7 @@ permissions:
 
 jobs:
   watch-released-tag:
-    runs-on: ubuntu-latest
+    runs-on: namespace-profile-bmc
     steps:
       - uses: actions/checkout@v4
 
