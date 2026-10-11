@@ -1,0 +1,6 @@
+{
+  "source_repo": "bare-metal-cloud/backend",
+  "source_ref": "v1.2.0",
+  "spec_path": "web/backend/docs/swagger.json",
+  "raw_spec_sha256": "d10c80af314b0ea3885f32d7fed3505ebf0cb532edafb016fa59bcc76c8541f8"
+}

@@ -1,0 +1,108 @@
+name: generate
+
+# Keeps this SDK in lockstep with released backend API versions.
+#
+# Trigger paths:
+# 1. A new `v*` tag on bare-metal-cloud/backend (watched hourly, and on any
+#    repository_dispatch of type api-spec-updated, e.g. the backend's own
+#    sdk-notify workflow pinging us at tag time).
+# 2. Manual workflow_dispatch.
+#
+# Behavior: fetch the spec AT the latest backend tag, compare against
+# spec/source-state.json, and if anything moved regenerate the client and
+# open a release-candidate pull request.
+#
+# Requires the repository secret BMC_BACKEND_SPEC_TOKEN: a fine-grained
+# personal access token with "Contents: read" on bare-metal-cloud/backend.
+# Without it the job skips (it cannot read the private backend repo).
+
+on:
+  workflow_dispatch:
+  repository_dispatch:
+    types: [api-spec-updated]
+  schedule:
+    - cron: "23 * * * *" # hourly check; a pushed backend tag is picked up within the hour
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  watch-released-tag:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check released backend tag for spec changes
+        id: watch
+        env:
+          GH_TOKEN: ${{ secrets.BMC_BACKEND_SPEC_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GH_TOKEN:-}" ]; then
+            echo "::warning::BMC_BACKEND_SPEC_TOKEN not set; cannot read bare-metal-cloud/backend. Set the secret to enable tag-driven regeneration."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          tag="$(gh api repos/bare-metal-cloud/backend/tags --jq '[.[].name | select(startswith("v"))] | first')"
+          if [ -z "$tag" ]; then
+            echo "::warning::no v* tag found on bare-metal-cloud/backend"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          gh api "repos/bare-metal-cloud/backend/contents/web/backend/docs/swagger.json?ref=$tag" \
+            --jq .content | base64 -d > /tmp/spec-raw.json
+          sha="$(sha256sum /tmp/spec-raw.json | awk '{print $1}')"
+
+          state_tag="$(jq -r .source_ref spec/source-state.json)"
+          state_sha="$(jq -r .raw_spec_sha256 spec/source-state.json)"
+
+          echo "latest released tag: $tag (state: $state_tag)"
+          if [ "$tag" = "$state_tag" ] && [ "$sha" = "$state_sha" ]; then
+            echo "spec unchanged since last regeneration"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          cp /tmp/spec-raw.json spec/swagger.json
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "sha=$sha" >> "$GITHUB_OUTPUT"
+
+      - name: Regenerate client
+        if: steps.watch.outputs.changed == 'true'
+        run: scripts/generate.sh
+
+      - name: Verify the regenerated client builds
+        if: steps.watch.outputs.changed == 'true'
+        run: |
+          npm install
+          npm run build
+
+      - name: Record the new source state
+        if: steps.watch.outputs.changed == 'true'
+        env:
+          TAG: ${{ steps.watch.outputs.tag }}
+          RAW_SHA: ${{ steps.watch.outputs.sha }}
+        run: |
+          jq -n --arg tag "$TAG" --arg sha "$RAW_SHA" \
+            '{source_repo: "bare-metal-cloud/backend", source_ref: $tag, spec_path: "web/backend/docs/swagger.json", raw_spec_sha256: $sha}' \
+            > spec/source-state.json
+
+      - name: Open regeneration PR
+        if: steps.watch.outputs.changed == 'true'
+        uses: peter-evans/create-pull-request@v7
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: chore/regenerate
+          title: "chore: regenerate client from API spec"
+          body: |
+            Automated regeneration from the backend OpenAPI spec
+            (`bare-metal-cloud/backend` → `web/backend/docs/swagger.json`).
+
+            Review the diff as the API delta. Merge cuts the next client
+            release; publish (or tag for git installs) when ready.
+          commit-message: "chore: regenerate client from API spec"
+          delete-branch: true
