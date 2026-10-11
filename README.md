@@ -94,13 +94,13 @@ registry-agnostic on purpose). Until then, consumers install from a git tag:
 npm install github:bare-metal-cloud/client-js#v0.1.0
 ```
 
-## Scope decision (pending)
+## Visibility
 
-The spec currently covers the **entire** API surface, including internal and
-admin endpoints. Before this repository is made public, decide whether to
-filter the spec down to customer-facing endpoints (the generation pipeline
-would drop non-public paths). Private today; flipping visibility is a
-one-command change once that ruling exists.
+Private for now (ruled 2026-10-11). The spec covers the **entire** API
+surface, including internal and admin endpoints — if this repository ever
+goes public, first decide whether to filter the spec down to
+customer-facing endpoints (the generation pipeline would drop non-public
+paths). Flipping visibility is a one-command change when that day comes.
 
 ## Known spec quirks handled by the pipeline
 
