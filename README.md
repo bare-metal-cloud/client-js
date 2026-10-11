@@ -32,17 +32,16 @@ npm install @bare-metal-cloud/client
 ## Quick start
 
 ```typescript
-import { Configuration, DefaultApi } from "@bare-metal-cloud/client";
+import { Configuration, ClustersApi } from "@bare-metal-cloud/client";
 
 const config = new Configuration({
   basePath: "https://api.example.com",
   accessToken: "YOUR_API_TOKEN", // platform API token
 });
 
-const api = new DefaultApi(config);
-
-// Example call — see docs/ for the full endpoint list.
-// const result = await api.someEndpoint();
+// One API class per domain — see docs/ for the full endpoint list.
+const clustersApi = new ClustersApi(config);
+// const clusters = await clustersApi.getClusters();
 ```
 
 ## How this repository works
